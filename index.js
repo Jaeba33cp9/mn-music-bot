@@ -9,6 +9,7 @@ const {
 } = require("discord.js");
 
 const { DisTube } = require("distube");
+const { YouTubePlugin } = require("@distube/youtube");
 const ffmpeg = require("ffmpeg-static");
 
 console.log("BOT STARTING...");
@@ -23,7 +24,7 @@ const client = new Client({
 const distube = new DisTube(client, {
   emitNewSongOnly: true,
   ffmpeg: ffmpeg,
-  plugins: []
+  plugins: [new YouTubePlugin()]
 });
 
 client.once("ready", async () => {
@@ -38,7 +39,7 @@ client.once("ready", async () => {
 
     new SlashCommandBuilder()
       .setName("play")
-      .setDescription("Play music")
+      .setDescription("Play YouTube music")
       .addStringOption(option =>
         option
           .setName("link")
