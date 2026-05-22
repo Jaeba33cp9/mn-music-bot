@@ -9,7 +9,6 @@ const {
 } = require("discord.js");
 
 const { DisTube } = require("distube");
-const { YtDlpPlugin } = require("@distube/yt-dlp");
 const ffmpeg = require("ffmpeg-static");
 
 console.log("BOT STARTING...");
@@ -24,20 +23,22 @@ const client = new Client({
 const distube = new DisTube(client, {
   emitNewSongOnly: true,
   ffmpeg: ffmpeg,
-  plugins: [new YtDlpPlugin()]
+  plugins: []
 });
 
 client.once("ready", async () => {
+
   console.log(`${client.user.tag} ONLINE`);
 
   const commands = [
+
     new SlashCommandBuilder()
       .setName("mp")
-      .setDescription("Join voice channel"),
+      .setDescription("Join voice"),
 
     new SlashCommandBuilder()
       .setName("play")
-      .setDescription("Play YouTube music")
+      .setDescription("Play music")
       .addStringOption(option =>
         option
           .setName("link")
@@ -47,7 +48,7 @@ client.once("ready", async () => {
 
     new SlashCommandBuilder()
       .setName("skip")
-      .setDescription("Skip song"),
+      .setDescription("Skip music"),
 
     new SlashCommandBuilder()
       .setName("stop")
@@ -56,20 +57,25 @@ client.once("ready", async () => {
     new SlashCommandBuilder()
       .setName("queue")
       .setDescription("Show queue")
+
   ].map(cmd => cmd.toJSON());
 
-  const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
+  const rest = new REST({ version: "10" })
+    .setToken(process.env.TOKEN);
 
   try {
+
     await rest.put(
       Routes.applicationCommands(process.env.CLIENT_ID),
       { body: commands }
     );
 
     console.log("Slash commands loaded");
+
   } catch (err) {
     console.log(err);
   }
+
 });
 
 client.on("interactionCreate", async interaction => {
@@ -107,7 +113,7 @@ client.on("interactionCreate", async interaction => {
         textChannel: interaction.channel
       });
 
-      return interaction.editReply("🎶 Music Added");
+      return interaction.editReply("🎵 Music Added");
     }
 
     if (interaction.commandName === "skip") {
@@ -149,11 +155,12 @@ client.on("interactionCreate", async interaction => {
       interaction.reply("❌ Music Error");
     }
   }
+
 });
 
 distube
   .on("playSong", (queue, song) => {
-    queue.textChannel.send(`🎵 Playing: **${song.name}**`);
+    queue.textChannel.send(`🎶 Playing: **${song.name}**`);
   })
 
   .on("addSong", (queue, song) => {
