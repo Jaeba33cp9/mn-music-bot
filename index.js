@@ -73,13 +73,14 @@ client.once("ready", async () => {
 });
 
 client.on("interactionCreate", async interaction => {
+
   if (!interaction.isChatInputCommand()) return;
 
   const voiceChannel = interaction.member.voice.channel;
 
   if (!voiceChannel) {
     return interaction.reply({
-      content: "❌ DKHOL L VOICE CHANNEL",
+      content: "❌ DKHOL L VOICE",
       ephemeral: true
     });
   }
@@ -106,7 +107,7 @@ client.on("interactionCreate", async interaction => {
         textChannel: interaction.channel
       });
 
-      return interaction.editReply("🎶 Music Added To Queue");
+      return interaction.editReply("🎶 Music Added");
     }
 
     if (interaction.commandName === "skip") {
@@ -152,19 +153,19 @@ client.on("interactionCreate", async interaction => {
 
 distube
   .on("playSong", (queue, song) => {
-    queue.textChannel.send(
-      `🎵 Playing: **${song.name}**`
-    );
+    queue.textChannel.send(`🎵 Playing: **${song.name}**`);
   })
+
   .on("addSong", (queue, song) => {
-    queue.textChannel.send(
-      `➕ Added: **${song.name}**`
-    );
+    queue.textChannel.send(`➕ Added: **${song.name}**`);
   })
+
   .on("finish", queue => {
     queue.textChannel.send("✅ Queue salat");
   })
+
   .on("error", (channel, err) => {
+
     console.log(err);
 
     if (channel) {
