@@ -3,7 +3,9 @@ require("dotenv").config();
 const {
   Client,
   GatewayIntentBits,
-  EmbedBuilder
+  SlashCommandBuilder,
+  REST,
+  Routes
 } = require("discord.js");
 
 const { DisTube } = require("distube");
@@ -14,57 +16,76 @@ console.log("BOT STARTING...");
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildVoiceStates,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.GuildVoiceStates
   ]
 });
 
-// 🎧 DisTube clean
 const distube = new DisTube(client, {
   emitNewSongOnly: true,
   ffmpeg
 });
 
-// =====================
-// 🎵 PREFIX COMMAND +mp
-// =====================
-client.on("messageCreate", async (message) => {
+client.once("ready", async () => {
+  console.log(`${client.user.tag} ONLINE`);
 
-  if (message.author.bot) return;
+  const commands = [
+    new SlashCommandBuilder()
+      .setName("pm")
+      .setDescription("Play music")
+      .addStringOption(opt =>
+        opt.setName("link")
+          .setDescription("YouTube link or song name")
+          .setRequired(true)
+      )
+  ].map(cmd => cmd.toJSON());
 
-  // command: +mp
-  if (!message.content.startsWith("+mp")) return;
-
-  const voiceChannel = message.member.voice.channel;
-
-  if (!voiceChannel) {
-    return message.reply("❌ دخل للvoice first");
-  }
-
-  const args = message.content.split(" ");
-  const link = args.slice(1).join(" ");
-
-  if (!link) {
-    return message.reply("❌ كتب link أو اسم الأغنية");
-  }
+  const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 
   try {
-    await distube.play(voiceChannel, link, {
-      member: message.member,
-      textChannel: message.channel
-    });
+    await rest.put(
+      Routes.applicationCommands(process.env.CLIENT_ID),
+      { body: commands }
+    );
 
-    message.reply("🎵 Started playing");
+    console.log("Slash command loaded");
   } catch (err) {
     console.log(err);
-    message.reply("❌ Music error");
   }
 });
 
-// =====================
-// 🎧 EVENTS
-// =====================
+client.on("interactionCreate", async interaction => {
+  if (!interaction.isChatInputCommand()) return;
+
+  if (interaction.commandName === "pm") {
+
+    const voiceChannel = interaction.member.voice.channel;
+
+    if (!voiceChannel) {
+      return interaction.reply({
+        content: "❌ Enter voice first",
+        ephemeral: true
+      });
+    }
+
+    const link = interaction.options.getString("link");
+
+    try {
+      await interaction.deferReply();
+
+      await distube.play(voiceChannel, link, {
+        member: interaction.member,
+        textChannel: interaction.channel
+      });
+
+      return interaction.editReply("🎵 Playing...");
+    } catch (err) {
+      console.log("🔥 INTERACTION ERROR:", err);
+      return interaction.editReply("❌ Music error: " + err.message);
+    }
+  }
+});
+
+// 🎧 EVENTS + DEBUG FIX
 distube
   .on("playSong", (queue, song) => {
     queue.textChannel.send(`🎶 Playing: **${song.name}**`);
@@ -76,11 +97,11 @@ distube
     queue.textChannel.send("✅ Queue finished");
   })
   .on("error", (channel, err) => {
-    console.log(err);
-    if (channel) channel.send("❌ Music error");
+    console.log("🔥 FULL ERROR:", err);
+
+    if (channel) {
+      channel.send("❌ Music error: " + err.message);
+    }
   });
 
-// =====================
-// 🔐 LOGIN
-// =====================
 client.login(process.env.TOKEN);
