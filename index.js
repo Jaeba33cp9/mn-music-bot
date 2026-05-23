@@ -9,6 +9,7 @@ const {
 } = require("discord.js");
 
 const { DisTube } = require("distube");
+const { YouTubePlugin } = require("@distube/youtube");
 const ffmpeg = require("ffmpeg-static");
 
 console.log("BOT STARTING...");
@@ -20,24 +21,29 @@ const client = new Client({
   ]
 });
 
+// 🎧 DisTube FIXED + YouTube support
 const distube = new DisTube(client, {
   emitNewSongOnly: true,
-  ffmpeg
+  ffmpeg,
+  plugins: [new YouTubePlugin()]
 });
 
+// =====================
+// READY + COMMANDS
+// =====================
 client.once("ready", async () => {
   console.log(`${client.user.tag} ONLINE`);
 
   const commands = [
     new SlashCommandBuilder()
       .setName("pm")
-      .setDescription("Play music")
-      .addStringOption(opt =>
-        opt.setName("link")
+      .setDescription("Play music in voice channel")
+      .addStringOption(option =>
+        option.setName("link")
           .setDescription("YouTube link or song name")
           .setRequired(true)
       )
-  ].map(cmd => cmd.toJSON());
+  ].map(c => c.toJSON());
 
   const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 
@@ -53,6 +59,9 @@ client.once("ready", async () => {
   }
 });
 
+// =====================
+// INTERACTION (/pm)
+// =====================
 client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
@@ -62,7 +71,7 @@ client.on("interactionCreate", async interaction => {
 
     if (!voiceChannel) {
       return interaction.reply({
-        content: "❌ Enter voice first",
+        content: "❌ Dkhoul l voice first",
         ephemeral: true
       });
     }
@@ -77,15 +86,17 @@ client.on("interactionCreate", async interaction => {
         textChannel: interaction.channel
       });
 
-      return interaction.editReply("🎵 Playing...");
+      return interaction.editReply("🎵 Playing music...");
     } catch (err) {
-      console.log("🔥 INTERACTION ERROR:", err);
+      console.log("🔥 ERROR:", err);
       return interaction.editReply("❌ Music error: " + err.message);
     }
   }
 });
 
-// 🎧 EVENTS + DEBUG FIX
+// =====================
+// EVENTS
+// =====================
 distube
   .on("playSong", (queue, song) => {
     queue.textChannel.send(`🎶 Playing: **${song.name}**`);
@@ -104,4 +115,7 @@ distube
     }
   });
 
+// =====================
+// LOGIN
+// =====================
 client.login(process.env.TOKEN);
