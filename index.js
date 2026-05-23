@@ -5,13 +5,17 @@ const {
   GatewayIntentBits,
   SlashCommandBuilder,
   REST,
-  Routes
+  Routes,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle
 } = require("discord.js");
 
 const { DisTube } = require("distube");
 const ffmpeg = require("ffmpeg-static");
 
-console.log("BOT STARTING...");
+console.log("PRO BOT STARTING...");
 
 const client = new Client({
   intents: [
@@ -20,130 +24,170 @@ const client = new Client({
   ]
 });
 
-// ✅ CLEAN DisTube (no plugins)
+// 🎧 DisTube clean
 const distube = new DisTube(client, {
   emitNewSongOnly: true,
   ffmpeg
 });
 
+// =====================
+// 🔥 SLASH COMMAND
+// =====================
 client.once("ready", async () => {
   console.log(`${client.user.tag} ONLINE`);
 
   const commands = [
     new SlashCommandBuilder()
-      .setName("mp")
-      .setDescription("Join voice"),
-
-    new SlashCommandBuilder()
-      .setName("play")
-      .setDescription("Play music")
-      .addStringOption(option =>
-        option.setName("link")
-          .setDescription("YouTube link or search")
+      .setName("pm")
+      .setDescription("Play music (PRO BOT)")
+      .addStringOption(opt =>
+        opt.setName("link")
+          .setDescription("YouTube link or song name")
           .setRequired(true)
-      ),
+      )
+  ].map(c => c.toJSON());
 
-    new SlashCommandBuilder()
-      .setName("skip")
-      .setDescription("Skip song"),
+  const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 
-    new SlashCommandBuilder()
-      .setName("stop")
-      .setDescription("Stop music"),
+  await rest.put(
+    Routes.applicationCommands(process.env.CLIENT_ID),
+    { body: commands }
+  );
 
-    new SlashCommandBuilder()
-      .setName("queue")
-      .setDescription("Show queue")
-  ].map(cmd => cmd.toJSON());
-
-  const rest = new REST({ version: "10" })
-    .setToken(process.env.TOKEN);
-
-  try {
-    await rest.put(
-      Routes.applicationCommands(process.env.CLIENT_ID),
-      { body: commands }
-    );
-
-    console.log("Slash commands loaded");
-  } catch (err) {
-    console.log(err);
-  }
+  console.log("Slash command loaded");
 });
 
+// =====================
+// 🎧 INTERACTION
+// =====================
 client.on("interactionCreate", async interaction => {
+
   if (!interaction.isChatInputCommand()) return;
 
-  const voiceChannel = interaction.member.voice.channel;
+  if (interaction.commandName === "pm") {
 
-  if (!voiceChannel) {
-    return interaction.reply({
-      content: "❌ Dkhoul l voice first",
-      ephemeral: true
-    });
-  }
+    const voiceChannel = interaction.member.voice.channel;
 
-  try {
-    // ▶️ PLAY
-    if (interaction.commandName === "play") {
-      const link = interaction.options.getString("link");
-
-      await interaction.deferReply();
-
-      await distube.play(voiceChannel, link, {
-        member: interaction.member,
-        textChannel: interaction.channel
+    if (!voiceChannel) {
+      return interaction.reply({
+        content: "❌ Enter voice first",
+        ephemeral: true
       });
-
-      return interaction.editReply("🎵 Added to queue");
     }
 
-    // ⏭ SKIP
-    if (interaction.commandName === "skip") {
-      distube.skip(interaction.guild);
-      return interaction.reply("⏭️ Skipped");
-    }
+    const link = interaction.options.getString("link");
 
-    // 🛑 STOP
-    if (interaction.commandName === "stop") {
-      distube.stop(interaction.guild);
-      return interaction.reply("🛑 Stopped");
-    }
+    await interaction.deferReply();
 
-    // 📜 QUEUE
-    if (interaction.commandName === "queue") {
-      const queue = distube.getQueue(interaction.guild);
+    await distube.play(voiceChannel, link, {
+      member: interaction.member,
+      textChannel: interaction.channel
+    });
 
-      if (!queue || !queue.songs.length) {
-        return interaction.reply("❌ Queue empty");
-      }
-
-      return interaction.reply(
-        "📜 Queue:\n" +
-        queue.songs.map((s, i) => `${i + 1}. ${s.name}`).join("\n")
-      );
-    }
-
-  } catch (err) {
-    console.log(err);
-    return interaction.reply("❌ Music error");
+    return interaction.editReply("🎵 Added to queue + joined voice");
   }
 });
 
+// =====================
+// 🎛 PRO CONTROLS (BUTTONS)
+// =====================
+function controlPanel(song) {
+
+  const embed = new EmbedBuilder()
+    .setTitle("🎧 Now Playing")
+    .setDescription(`**${song.name}**`)
+    .setColor("Blue");
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("pause")
+      .setLabel("⏸ Pause")
+      .setStyle(ButtonStyle.Primary),
+
+    new ButtonBuilder()
+      .setCustomId("resume")
+      .setLabel("▶ Resume")
+      .setStyle(ButtonStyle.Success),
+
+    new ButtonBuilder()
+      .setCustomId("skip")
+      .setLabel("⏭ Skip")
+      .setStyle(ButtonStyle.Secondary),
+
+    new ButtonBuilder()
+      .setCustomId("stop")
+      .setLabel("⛔ Stop")
+      .setStyle(ButtonStyle.Danger)
+  );
+
+  return { embed, row };
+}
+
+// =====================
 // 🎧 EVENTS
+// =====================
 distube
   .on("playSong", (queue, song) => {
-    queue.textChannel.send(`🎶 Playing: **${song.name}**`);
+
+    const panel = controlPanel(song);
+
+    queue.textChannel.send({
+      embeds: [panel.embed],
+      components: [panel.row]
+    });
   })
+
   .on("addSong", (queue, song) => {
     queue.textChannel.send(`➕ Added: **${song.name}**`);
   })
+
   .on("finish", queue => {
     queue.textChannel.send("✅ Queue finished");
   })
+
   .on("error", (channel, err) => {
     console.log(err);
     if (channel) channel.send("❌ Music error");
   });
 
+// =====================
+// 🎛 BUTTON HANDLER
+// =====================
+client.on("interactionCreate", async interaction => {
+
+  if (!interaction.isButton()) return;
+
+  const guild = interaction.guild;
+
+  try {
+
+    if (interaction.customId === "pause") {
+      distube.pause(guild);
+      return interaction.reply({ content: "⏸ Paused", ephemeral: true });
+    }
+
+    if (interaction.customId === "resume") {
+      distube.resume(guild);
+      return interaction.reply({ content: "▶ Resumed", ephemeral: true });
+    }
+
+    if (interaction.customId === "skip") {
+      distube.skip(guild);
+      return interaction.reply({ content: "⏭ Skipped", ephemeral: true });
+    }
+
+    if (interaction.customId === "stop") {
+      distube.stop(guild);
+      return interaction.reply({ content: "⛔ Stopped", ephemeral: true });
+    }
+
+  } catch (err) {
+    console.log(err);
+    interaction.reply({ content: "❌ Error", ephemeral: true });
+  }
+});
+
+// =====================
+// 🔐 LOGIN
+// =====================
 client.login(process.env.TOKEN);
