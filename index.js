@@ -21,7 +21,7 @@ const client = new Client({
   ]
 });
 
-// 🎧 DisTube (GLOBAL VOLUME 100)
+// 🎧 DisTube
 const distube = new DisTube(client, {
   emitNewSongOnly: true,
   ffmpeg,
@@ -30,7 +30,7 @@ const distube = new DisTube(client, {
 });
 
 // =====================
-// READY + COMMAND
+// READY + SLASH COMMANDS
 // =====================
 client.once("ready", async () => {
   console.log(`${client.user.tag} ONLINE`);
@@ -43,7 +43,15 @@ client.once("ready", async () => {
         opt.setName("link")
           .setDescription("YouTube link or song name")
           .setRequired(true)
-      )
+      ),
+
+    new SlashCommandBuilder()
+      .setName("stop")
+      .setDescription("Stop music"),
+
+    new SlashCommandBuilder()
+      .setName("next")
+      .setDescription("Skip to next song")
   ].map(c => c.toJSON());
 
   const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
@@ -53,29 +61,32 @@ client.once("ready", async () => {
     { body: commands }
   );
 
-  console.log("Slash command loaded");
+  console.log("Slash commands loaded");
 });
 
 // =====================
-// PLAY COMMAND
+// INTERACTIONS
 // =====================
 client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
-  if (interaction.commandName === "play") {
+  const voiceChannel = interaction.member.voice.channel;
 
-    const voiceChannel = interaction.member.voice.channel;
+  // ❌ no voice
+  if (!voiceChannel && interaction.commandName !== "stop") {
+    return interaction.reply({
+      content: "❌ Enter voice first",
+      ephemeral: true
+    });
+  }
 
-    if (!voiceChannel) {
-      return interaction.reply({
-        content: "❌ Enter voice first",
-        ephemeral: true
-      });
-    }
+  try {
 
-    const link = interaction.options.getString("link");
+    // 🎵 PLAY
+    if (interaction.commandName === "play") {
 
-    try {
+      const link = interaction.options.getString("link");
+
       await interaction.deferReply();
 
       await distube.play(voiceChannel, link, {
@@ -83,23 +94,33 @@ client.on("interactionCreate", async interaction => {
         textChannel: interaction.channel
       });
 
-      return interaction.editReply("🎵 Playing music...");
-    } catch (err) {
-      console.log("🔥 ERROR:", err);
-      return interaction.editReply("❌ Music error: " + err.message);
+      return interaction.editReply("🎵 Playing...");
     }
+
+    // 🛑 STOP
+    if (interaction.commandName === "stop") {
+      distube.stop(interaction.guild);
+      return interaction.reply("🛑 Stopped music");
+    }
+
+    // ⏭ NEXT
+    if (interaction.commandName === "next") {
+      distube.skip(interaction.guild);
+      return interaction.reply("⏭ Skipped to next song");
+    }
+
+  } catch (err) {
+    console.log("🔥 ERROR:", err);
+    return interaction.reply("❌ Music error: " + err.message);
   }
 });
 
 // =====================
-// EVENTS (FORCE VOLUME)
+// EVENTS
 // =====================
 distube
   .on("playSong", (queue, song) => {
-
-    // 🔊 FORCE VOLUME 100 (IMPORTANT)
     queue.setVolume(100);
-
     queue.textChannel.send(`🎶 Playing: **${song.name}**`);
   })
   .on("addSong", (queue, song) => {
