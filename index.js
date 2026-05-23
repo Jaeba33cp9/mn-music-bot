@@ -21,15 +21,16 @@ const client = new Client({
   ]
 });
 
-// 🎧 DisTube FIXED
+// 🎧 DisTube (GLOBAL VOLUME 100)
 const distube = new DisTube(client, {
   emitNewSongOnly: true,
   ffmpeg,
-  plugins: [new YouTubePlugin()]
+  plugins: [new YouTubePlugin()],
+  volume: 100
 });
 
 // =====================
-// READY + REGISTER COMMAND
+// READY + COMMAND
 // =====================
 client.once("ready", async () => {
   console.log(`${client.user.tag} ONLINE`);
@@ -37,9 +38,9 @@ client.once("ready", async () => {
   const commands = [
     new SlashCommandBuilder()
       .setName("play")
-      .setDescription("Play music in voice channel")
-      .addStringOption(option =>
-        option.setName("link")
+      .setDescription("Play music")
+      .addStringOption(opt =>
+        opt.setName("link")
           .setDescription("YouTube link or song name")
           .setRequired(true)
       )
@@ -47,20 +48,16 @@ client.once("ready", async () => {
 
   const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 
-  try {
-    await rest.put(
-      Routes.applicationCommands(process.env.CLIENT_ID),
-      { body: commands }
-    );
+  await rest.put(
+    Routes.applicationCommands(process.env.CLIENT_ID),
+    { body: commands }
+  );
 
-    console.log("Slash command /play loaded");
-  } catch (err) {
-    console.log(err);
-  }
+  console.log("Slash command loaded");
 });
 
 // =====================
-// /play COMMAND
+// PLAY COMMAND
 // =====================
 client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
@@ -71,7 +68,7 @@ client.on("interactionCreate", async interaction => {
 
     if (!voiceChannel) {
       return interaction.reply({
-        content: "❌ Dkhoul l voice first",
+        content: "❌ Enter voice first",
         ephemeral: true
       });
     }
@@ -86,7 +83,7 @@ client.on("interactionCreate", async interaction => {
         textChannel: interaction.channel
       });
 
-      return interaction.editReply("🎵 Joined VC + Playing...");
+      return interaction.editReply("🎵 Playing music...");
     } catch (err) {
       console.log("🔥 ERROR:", err);
       return interaction.editReply("❌ Music error: " + err.message);
@@ -95,10 +92,14 @@ client.on("interactionCreate", async interaction => {
 });
 
 // =====================
-// EVENTS
+// EVENTS (FORCE VOLUME)
 // =====================
 distube
   .on("playSong", (queue, song) => {
+
+    // 🔊 FORCE VOLUME 100 (IMPORTANT)
+    queue.setVolume(100);
+
     queue.textChannel.send(`🎶 Playing: **${song.name}**`);
   })
   .on("addSong", (queue, song) => {
