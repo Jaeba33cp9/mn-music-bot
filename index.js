@@ -9,7 +9,6 @@ const {
 } = require("discord.js");
 
 const { DisTube } = require("distube");
-const { YouTubePlugin } = require("@distube/youtube");
 const ffmpeg = require("ffmpeg-static");
 
 console.log("BOT STARTING...");
@@ -21,16 +20,15 @@ const client = new Client({
   ]
 });
 
-// 🎧 DisTube
+// 🎧 DisTube (NO PLUGINS = STABLE)
 const distube = new DisTube(client, {
   emitNewSongOnly: true,
   ffmpeg,
-  plugins: [new YouTubePlugin()],
   volume: 100
 });
 
 // =====================
-// READY + SLASH COMMANDS
+// READY + COMMANDS
 // =====================
 client.once("ready", async () => {
   console.log(`${client.user.tag} ONLINE`);
@@ -51,17 +49,21 @@ client.once("ready", async () => {
 
     new SlashCommandBuilder()
       .setName("next")
-      .setDescription("Skip to next song")
+      .setDescription("Skip song")
   ].map(c => c.toJSON());
 
   const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 
-  await rest.put(
-    Routes.applicationCommands(process.env.CLIENT_ID),
-    { body: commands }
-  );
+  try {
+    await rest.put(
+      Routes.applicationCommands(process.env.CLIENT_ID),
+      { body: commands }
+    );
 
-  console.log("Slash commands loaded");
+    console.log("Slash commands loaded");
+  } catch (err) {
+    console.log(err);
+  }
 });
 
 // =====================
@@ -72,7 +74,6 @@ client.on("interactionCreate", async interaction => {
 
   const voiceChannel = interaction.member.voice.channel;
 
-  // ❌ no voice
   if (!voiceChannel && interaction.commandName !== "stop") {
     return interaction.reply({
       content: "❌ Enter voice first",
@@ -106,7 +107,7 @@ client.on("interactionCreate", async interaction => {
     // ⏭ NEXT
     if (interaction.commandName === "next") {
       distube.skip(interaction.guild);
-      return interaction.reply("⏭ Skipped to next song");
+      return interaction.reply("⏭ Skipped song");
     }
 
   } catch (err) {
