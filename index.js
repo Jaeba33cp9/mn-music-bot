@@ -28,7 +28,7 @@ const distube = new DisTube(client, {
 });
 
 // =====================
-// READY + COMMANDS
+// READY + SLASH COMMAND
 // =====================
 client.once("ready", async () => {
   console.log(`${client.user.tag} ONLINE`);
@@ -54,16 +54,12 @@ client.once("ready", async () => {
 
   const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 
-  try {
-    await rest.put(
-      Routes.applicationCommands(process.env.CLIENT_ID),
-      { body: commands }
-    );
+  await rest.put(
+    Routes.applicationCommands(process.env.CLIENT_ID),
+    { body: commands }
+  );
 
-    console.log("Slash commands loaded");
-  } catch (err) {
-    console.log(err);
-  }
+  console.log("Slash commands loaded");
 });
 
 // =====================
@@ -74,6 +70,7 @@ client.on("interactionCreate", async interaction => {
 
   const voiceChannel = interaction.member.voice.channel;
 
+  // ❌ no voice (except stop)
   if (!voiceChannel && interaction.commandName !== "stop") {
     return interaction.reply({
       content: "❌ Enter voice first",
@@ -117,22 +114,31 @@ client.on("interactionCreate", async interaction => {
 });
 
 // =====================
-// EVENTS
+// EVENTS (IMPORTANT SOUND FIX)
 // =====================
 distube
   .on("playSong", (queue, song) => {
+
+    // 🔊 FORCE SOUND FIX
     queue.setVolume(100);
+
     queue.textChannel.send(`🎶 Playing: **${song.name}**`);
   })
+
   .on("addSong", (queue, song) => {
     queue.textChannel.send(`➕ Added: **${song.name}**`);
   })
+
   .on("finish", queue => {
     queue.textChannel.send("✅ Queue finished");
   })
+
   .on("error", (channel, err) => {
     console.log("🔥 FULL ERROR:", err);
-    if (channel) channel.send("❌ Music error: " + err.message);
+
+    if (channel) {
+      channel.send("❌ Music error: " + err.message);
+    }
   });
 
 client.login(process.env.TOKEN);
