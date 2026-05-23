@@ -21,7 +21,7 @@ const client = new Client({
   ]
 });
 
-// 🎧 DisTube FIXED + YouTube support
+// 🎧 DisTube FIXED
 const distube = new DisTube(client, {
   emitNewSongOnly: true,
   ffmpeg,
@@ -29,14 +29,14 @@ const distube = new DisTube(client, {
 });
 
 // =====================
-// READY + COMMANDS
+// READY + REGISTER COMMAND
 // =====================
 client.once("ready", async () => {
   console.log(`${client.user.tag} ONLINE`);
 
   const commands = [
     new SlashCommandBuilder()
-      .setName("pm")
+      .setName("play")
       .setDescription("Play music in voice channel")
       .addStringOption(option =>
         option.setName("link")
@@ -53,19 +53,19 @@ client.once("ready", async () => {
       { body: commands }
     );
 
-    console.log("Slash command loaded");
+    console.log("Slash command /play loaded");
   } catch (err) {
     console.log(err);
   }
 });
 
 // =====================
-// INTERACTION (/pm)
+// /play COMMAND
 // =====================
 client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
-  if (interaction.commandName === "pm") {
+  if (interaction.commandName === "play") {
 
     const voiceChannel = interaction.member.voice.channel;
 
@@ -86,7 +86,7 @@ client.on("interactionCreate", async interaction => {
         textChannel: interaction.channel
       });
 
-      return interaction.editReply("🎵 Playing music...");
+      return interaction.editReply("🎵 Joined VC + Playing...");
     } catch (err) {
       console.log("🔥 ERROR:", err);
       return interaction.editReply("❌ Music error: " + err.message);
@@ -109,13 +109,7 @@ distube
   })
   .on("error", (channel, err) => {
     console.log("🔥 FULL ERROR:", err);
-
-    if (channel) {
-      channel.send("❌ Music error: " + err.message);
-    }
+    if (channel) channel.send("❌ Music error: " + err.message);
   });
 
-// =====================
-// LOGIN
-// =====================
 client.login(process.env.TOKEN);
